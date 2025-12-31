@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Callback Listener - Rules</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">Callback Listener</div>
+      <nav class="nav">
+        <a href="/">Requests</a>
+        <a class="active" href="/rules">Rules</a>
+        <a href="/settings">Settings</a>
+        <a href="/healthz">Health</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero slim">
+    <div class="container">
+      <h1>Response rules</h1>
+      <p>Define how each <span class="badge">/hook/*</span> endpoint responds.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Create rule</h2>
+          <p class="hint">Paths are relative to /hook. Example: <span class="mono">/orders</span>.</p>
+        </div>
+      </div>
+      <form class="form-grid" action="/rules" method="post">
+        <label>
+          Method
+          <input name="method" list="methods" placeholder="POST" required>
+        </label>
+        <label>
+          Path
+          <input name="path" placeholder="/orders" required>
+        </label>
+        <label>
+          Status
+          <input name="status_code" type="number" min="100" max="599" placeholder="{{ .DefaultStatus }}">
+        </label>
+        <label class="span-2">
+          Response body
+          <textarea name="response_body" rows="4" placeholder="{{ .DefaultBody }}"></textarea>
+        </label>
+        <label class="span-2">
+          Response headers (JSON)
+          <textarea name="response_headers" rows="3" placeholder='{"Content-Type": "application/json"}'></textarea>
+        </label>
+        <div class="span-2 form-actions">
+          <button class="button" type="submit">Create rule</button>
+          <div class="muted">Defaults to status {{ .DefaultStatus }} and body if left blank.</div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Existing rules</h2>
+          <p class="hint">Match is strict on method + path.</p>
+        </div>
+        <div class="chip">{{ len .Rules }} rules</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Status</th>
+              <th>Body</th>
+              <th>Headers</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ if .Rules }}
+              {{ range .Rules }}
+                <tr>
+                  <td><span class="method m-{{ .Method }}">{{ .Method }}</span></td>
+                  <td class="mono">{{ .Path }}</td>
+                  <td>{{ .StatusCode }}</td>
+                  <td><div class="truncate">{{ .ResponseBody }}</div></td>
+                  <td><div class="truncate">{{ if .ResponseHeaders.Valid }}{{ .ResponseHeaders.String }}{{ else }}<span class="muted">None</span>{{ end }}</div></td>
+                  <td class="actions">
+                    <a class="link" href="/rules/{{ .ID }}/edit">Edit</a>
+                    <form action="/rules/{{ .ID }}/delete" method="post">
+                      <button class="button ghost" type="submit">Delete</button>
+                    </form>
+                  </td>
+                </tr>
+              {{ end }}
+            {{ else }}
+              <tr>
+                <td class="empty" colspan="6">No rules yet. Create one to customize responses.</td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <datalist id="methods">
+    <option value="GET">
+    <option value="POST">
+    <option value="PUT">
+    <option value="PATCH">
+    <option value="DELETE">
+    <option value="OPTIONS">
+    <option value="HEAD">
+  </datalist>
+</body>
+</html>

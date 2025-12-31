@@ -1,0 +1,4 @@
+addr: ":8080"
+db_dsn: "user:pass@tcp(127.0.0.1:3306)/callback_listener?parseTime=true"
+default_status: 200
+default_body: '{"success": true, "message": "received"}'

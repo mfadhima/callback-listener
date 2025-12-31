@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Callback Listener - Edit Rule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">Callback Listener</div>
+      <nav class="nav">
+        <a href="/">Requests</a>
+        <a class="active" href="/rules">Rules</a>
+        <a href="/healthz">Health</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero slim">
+    <div class="container">
+      <h1>Edit rule</h1>
+      <p>Update response behavior for <span class="badge">{{ .Rule.Method }} {{ .Rule.Path }}</span>.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Rule details</h2>
+          <p class="hint">Defaults to status {{ .DefaultStatus }} and body if left blank.</p>
+        </div>
+        <a class="link" href="/rules">Back to rules</a>
+      </div>
+      <form class="form-grid" action="/rules/{{ .Rule.ID }}/update" method="post">
+        <label>
+          Method
+          <input name="method" list="methods" value="{{ .Rule.Method }}" required>
+        </label>
+        <label>
+          Path
+          <input name="path" value="{{ .Rule.Path }}" required>
+        </label>
+        <label>
+          Status
+          <input name="status_code" type="number" min="100" max="599" value="{{ .Rule.StatusCode }}">
+        </label>
+        <label class="span-2">
+          Response body
+          <textarea name="response_body" rows="4">{{ .Rule.ResponseBody }}</textarea>
+        </label>
+        <label class="span-2">
+          Response headers (JSON)
+          <textarea name="response_headers" rows="3">{{ if .Rule.ResponseHeaders.Valid }}{{ .Rule.ResponseHeaders.String }}{{ end }}</textarea>
+        </label>
+        <div class="span-2 form-actions">
+          <button class="button" type="submit">Save changes</button>
+          <a class="link" href="/rules">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <datalist id="methods">
+    <option value="GET">
+    <option value="POST">
+    <option value="PUT">
+    <option value="PATCH">
+    <option value="DELETE">
+    <option value="OPTIONS">
+    <option value="HEAD">
+  </datalist>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Callback Listener - Request {{ .Request.ID }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">Callback Listener</div>
+      <nav class="nav">
+        <a href="/">Requests</a>
+        <a href="/rules">Rules</a>
+        <a href="/settings">Settings</a>
+        <a href="/healthz">Health</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero slim">
+    <div class="container">
+      <h1>Request #{{ .Request.ID }}</h1>
+      <p>Inspect the raw request as stored.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="stack">
+      <div class="card">
+        <h2>Summary</h2>
+        <dl class="meta">
+          <div>
+            <dt>Method</dt>
+            <dd><span class="method m-{{ .Request.Method }}">{{ .Request.Method }}</span></dd>
+          </div>
+          <div>
+            <dt>Path</dt>
+            <dd class="mono">{{ .Request.Path }}</dd>
+          </div>
+          <div>
+            <dt>Received</dt>
+            <dd>{{ formatTime .Request.CreatedAt }}</dd>
+          </div>
+          <div>
+            <dt>Rule</dt>
+            <dd>
+              {{ if .Request.RuleID.Valid }}
+                <a class="link" href="/rules/{{ .Request.RuleID.Int64 }}/edit">Rule {{ .Request.RuleID.Int64 }}</a>
+              {{ else }}
+                <span class="muted">None</span>
+              {{ end }}
+            </dd>
+          </div>
+        </dl>
+        {{ if .Rule }}
+          <div class="callout">
+            <div class="callout-title">Matched Rule</div>
+            <div class="callout-body">
+              <div><strong>{{ .Rule.Method }}</strong> {{ .Rule.Path }}</div>
+              <div>Status: {{ .Rule.StatusCode }}</div>
+            </div>
+          </div>
+        {{ end }}
+      </div>
+
+      <div class="card">
+        <h2>Query</h2>
+        {{ if .Request.QueryJSON.Valid }}
+          <pre>{{ prettyJSON .Request.QueryJSON.String }}</pre>
+        {{ else }}
+          <div class="muted">No query parameters.</div>
+        {{ end }}
+      </div>
+
+      <div class="card">
+        <h2>Headers</h2>
+        {{ if .Request.HeadersJSON.Valid }}
+          <pre>{{ prettyJSON .Request.HeadersJSON.String }}</pre>
+        {{ else }}
+          <div class="muted">No headers captured.</div>
+        {{ end }}
+      </div>
+
+      <div class="card">
+        <h2>Body</h2>
+        {{ if .Request.BodyText.Valid }}
+          <pre>{{ .Request.BodyText.String }}</pre>
+        {{ else }}
+          <div class="muted">No body content.</div>
+        {{ end }}
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Callback Listener - Requests</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">Callback Listener</div>
+      <nav class="nav">
+        <a class="active" href="/">Requests</a>
+        <a href="/rules">Rules</a>
+        <a href="/settings">Settings</a>
+        <a href="/healthz">Health</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>Incoming calls, logged with context.</h1>
+      <p>Listening on <span class="badge">/hook/*</span> with full payload capture.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Latest requests</h2>
+          <p class="hint">Most recent 50 calls. Click any row for details.</p>
+        </div>
+        <div class="card-actions">
+          <form class="filter" action="/" method="get">
+            <label for="path-filter">Path</label>
+            <input id="path-filter" name="path" list="path-options" placeholder="All" value="{{ .Active }}">
+            <button class="button ghost" type="submit">Filter</button>
+            {{ if .Active }}
+              <a class="link" href="/">Clear</a>
+            {{ end }}
+          </form>
+          <div class="chip" id="live-status">Live</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Method</th>
+              <th>Path</th>
+              <th>Received</th>
+              <th>Rule</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ if .Requests }}
+              {{ range .Requests }}
+                <tr>
+                  <td><a class="link" href="/requests/{{ .ID }}">#{{ .ID }}</a></td>
+                  <td><span class="method m-{{ .Method }}">{{ .Method }}</span></td>
+                  <td class="mono">{{ .Path }}</td>
+                  <td>{{ formatTime .CreatedAt }}</td>
+                  <td>
+                    {{ if .RuleID.Valid }}
+                      <a class="link" href="/rules/{{ .RuleID.Int64 }}/edit">Rule {{ .RuleID.Int64 }}</a>
+                    {{ else }}
+                      <span class="muted">None</span>
+                    {{ end }}
+                  </td>
+                </tr>
+              {{ end }}
+            {{ else }}
+              <tr>
+                <td class="empty" colspan="5">
+                  {{ if .Active }}
+                    No requests for <span class="mono">{{ .Active }}</span> yet.
+                  {{ else }}
+                    No requests yet. Send a call to /hook/your-endpoint.
+                  {{ end }}
+                </td>
+              </tr>
+            {{ end }}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <datalist id="path-options">
+      {{ range .Paths }}
+        <option value="{{ . }}"></option>
+      {{ end }}
+    </datalist>
+  </main>
+  <script>
+    const refreshMs = 5000;
+    const activePath = new URLSearchParams(window.location.search).get("path") || "";
+    const tableBody = document.querySelector("tbody");
+    const liveStatus = document.getElementById("live-status");
+
+    function formatClock() {
+      return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+
+    function renderEmptyRow(pathValue) {
+      const row = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.className = "empty";
+      cell.colSpan = 5;
+      if (pathValue) {
+        const span = document.createElement("span");
+        span.className = "mono";
+        span.textContent = pathValue;
+        cell.append("No requests for ", span, " yet.");
+      } else {
+        cell.textContent = "No requests yet. Send a call to /hook/your-endpoint.";
+      }
+      row.appendChild(cell);
+      return row;
+    }
+
+    function renderRows(items) {
+      tableBody.innerHTML = "";
+      if (!items.length) {
+        tableBody.appendChild(renderEmptyRow(activePath));
+        return;
+      }
+
+      for (const item of items) {
+        const row = document.createElement("tr");
+
+        const idCell = document.createElement("td");
+        const idLink = document.createElement("a");
+        idLink.className = "link";
+        idLink.href = `/requests/${item.id}`;
+        idLink.textContent = `#${item.id}`;
+        idCell.appendChild(idLink);
+        row.appendChild(idCell);
+
+        const methodCell = document.createElement("td");
+        const methodTag = document.createElement("span");
+        methodTag.className = `method m-${item.method}`;
+        methodTag.textContent = item.method;
+        methodCell.appendChild(methodTag);
+        row.appendChild(methodCell);
+
+        const pathCell = document.createElement("td");
+        pathCell.className = "mono";
+        pathCell.textContent = item.path;
+        row.appendChild(pathCell);
+
+        const timeCell = document.createElement("td");
+        timeCell.textContent = item.created_at;
+        row.appendChild(timeCell);
+
+        const ruleCell = document.createElement("td");
+        if (item.rule_id) {
+          const ruleLink = document.createElement("a");
+          ruleLink.className = "link";
+          ruleLink.href = `/rules/${item.rule_id}/edit`;
+          ruleLink.textContent = `Rule ${item.rule_id}`;
+          ruleCell.appendChild(ruleLink);
+        } else {
+          const muted = document.createElement("span");
+          muted.className = "muted";
+          muted.textContent = "None";
+          ruleCell.appendChild(muted);
+        }
+        row.appendChild(ruleCell);
+
+        tableBody.appendChild(row);
+      }
+    }
+
+    async function refreshRequests() {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      try {
+        const url = new URL("/api/requests", window.location.origin);
+        if (activePath) {
+          url.searchParams.set("path", activePath);
+        }
+        const response = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!response.ok) {
+          return;
+        }
+        const items = await response.json();
+        renderRows(items);
+        if (liveStatus) {
+          liveStatus.textContent = `Live · ${formatClock()}`;
+        }
+      } catch (error) {
+        // Silent fail to avoid flashing errors in the UI.
+      }
+    }
+
+    setInterval(refreshRequests, refreshMs);
+  </script>
+</body>
+</html>

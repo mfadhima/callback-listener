@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Callback Listener - Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">Callback Listener</div>
+      <nav class="nav">
+        <a href="/">Requests</a>
+        <a href="/rules">Rules</a>
+        <a class="active" href="/settings">Settings</a>
+        <a href="/healthz">Health</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero slim">
+    <div class="container">
+      <h1>Settings</h1>
+      <p>Manage stored request history.</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h2>Delete stored requests</h2>
+          <p class="hint">Paths are grouped from stored requests.</p>
+        </div>
+      </div>
+      {{ if .Paths }}
+        <form class="form-grid" action="/settings/delete" method="post">
+          <label class="span-2">
+            Path
+            <select name="path" required>
+              {{ range .Paths }}
+                <option value="{{ . }}">{{ . }}</option>
+              {{ end }}
+            </select>
+          </label>
+          <div class="span-2 form-actions">
+            <button class="button" type="submit">Delete requests</button>
+            <div class="muted">Deletes only the selected path.</div>
+          </div>
+        </form>
+      {{ else }}
+        <div class="muted">No stored requests available to delete.</div>
+      {{ end }}
+    </div>
+  </main>
+</body>
+</html>
