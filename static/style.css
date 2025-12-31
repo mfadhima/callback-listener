@@ -192,6 +192,14 @@ tr:hover td {
   background: rgba(232, 106, 68, 0.06);
 }
 
+.request-row {
+  cursor: pointer;
+}
+
+.request-row.is-open td {
+  background: rgba(232, 106, 68, 0.08);
+}
+
 .empty {
   text-align: center;
   color: var(--muted);
@@ -382,6 +390,8 @@ pre {
   padding: 14px;
   font-size: 13px;
   font-family: "JetBrains Mono", monospace;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .truncate {
@@ -399,6 +409,46 @@ pre {
 
 .actions form {
   margin: 0;
+}
+
+.detail-row td {
+  padding: 0;
+  border-bottom: none;
+}
+
+.detail-panel {
+  background: var(--bg-strong);
+  border-radius: 0 0 16px 16px;
+  padding: 18px;
+  border-top: 1px dashed var(--border);
+}
+
+.detail-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.detail-grid.two-col {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .detail-grid.two-col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.detail-card {
+  background: var(--card);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+}
+
+.detail-card h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
 }
 
 @media (max-width: 720px) {

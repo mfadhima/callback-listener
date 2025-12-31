@@ -58,6 +58,25 @@ type RequestSummary struct {
 	CreatedAt string `json:"created_at"`
 }
 
+type RuleSummary struct {
+	ID         int64  `json:"id"`
+	Method     string `json:"method"`
+	Path       string `json:"path"`
+	StatusCode int    `json:"status_code"`
+}
+
+type RequestDetail struct {
+	ID          int64        `json:"id"`
+	Method      string       `json:"method"`
+	Path        string       `json:"path"`
+	RuleID      *int64       `json:"rule_id"`
+	QueryJSON   string       `json:"query_json"`
+	HeadersJSON string       `json:"headers_json"`
+	BodyText    string       `json:"body_text"`
+	CreatedAt   string       `json:"created_at"`
+	Rule        *RuleSummary `json:"rule"`
+}
+
 type IndexView struct {
 	Requests []RequestLog
 	Paths    []string
@@ -135,6 +154,36 @@ func main() {
 			return
 		}
 		c.JSON(http.StatusOK, summarizeRequests(requests))
+	})
+
+	router.GET("/api/requests/:id", func(c *gin.Context) {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request id"})
+			return
+		}
+		requestLog, err := getRequest(db, id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "request not found"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load request"})
+			return
+		}
+		detail := buildRequestDetail(requestLog)
+		if requestLog.RuleID.Valid {
+			rule, err := getRule(db, requestLog.RuleID.Int64)
+			if err == nil {
+				detail.Rule = &RuleSummary{
+					ID:         rule.ID,
+					Method:     rule.Method,
+					Path:       rule.Path,
+					StatusCode: rule.StatusCode,
+				}
+			}
+		}
+		c.JSON(http.StatusOK, detail)
 	})
 
 	router.GET("/requests/:id", func(c *gin.Context) {
@@ -394,6 +443,36 @@ func summarizeRequests(requests []RequestLog) []RequestSummary {
 		})
 	}
 	return summaries
+}
+
+func buildRequestDetail(request RequestLog) RequestDetail {
+	var ruleID *int64
+	if request.RuleID.Valid {
+		value := request.RuleID.Int64
+		ruleID = &value
+	}
+	queryJSON := ""
+	if request.QueryJSON.Valid {
+		queryJSON = request.QueryJSON.String
+	}
+	headersJSON := ""
+	if request.HeadersJSON.Valid {
+		headersJSON = request.HeadersJSON.String
+	}
+	bodyText := ""
+	if request.BodyText.Valid {
+		bodyText = request.BodyText.String
+	}
+	return RequestDetail{
+		ID:          request.ID,
+		Method:      request.Method,
+		Path:        request.Path,
+		RuleID:      ruleID,
+		QueryJSON:   queryJSON,
+		HeadersJSON: headersJSON,
+		BodyText:    bodyText,
+		CreatedAt:   formatTime(request.CreatedAt),
+	}
 }
 
 func listRequestPaths(db *sql.DB) ([]string, error) {

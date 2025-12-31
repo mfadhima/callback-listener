@@ -62,7 +62,7 @@
           <tbody>
             {{ if .Requests }}
               {{ range .Requests }}
-                <tr>
+                <tr class="request-row" data-request-id="{{ .ID }}">
                   <td><a class="link" href="/requests/{{ .ID }}">#{{ .ID }}</a></td>
                   <td><span class="method m-{{ .Method }}">{{ .Method }}</span></td>
                   <td class="mono">{{ .Path }}</td>
@@ -133,6 +133,8 @@
 
       for (const item of items) {
         const row = document.createElement("tr");
+        row.className = "request-row";
+        row.dataset.requestId = item.id;
 
         const idCell = document.createElement("td");
         const idLink = document.createElement("a");
@@ -177,6 +179,135 @@
       }
     }
 
+    const detailCache = new Map();
+    let expandedId = null;
+
+    function formatJSON(raw) {
+      if (!raw) {
+        return "";
+      }
+      try {
+        return JSON.stringify(JSON.parse(raw), null, 2);
+      } catch (error) {
+        return raw;
+      }
+    }
+
+    function createDetailSection(title, contentNode) {
+      const card = document.createElement("div");
+      card.className = "detail-card";
+      const heading = document.createElement("h3");
+      heading.textContent = title;
+      card.appendChild(heading);
+      card.appendChild(contentNode);
+      return card;
+    }
+
+    function createMuted(text) {
+      const div = document.createElement("div");
+      div.className = "muted";
+      div.textContent = text;
+      return div;
+    }
+
+    function createPreformatted(text) {
+      const pre = document.createElement("pre");
+      pre.textContent = text;
+      return pre;
+    }
+
+    function buildDetailRow(detail) {
+      const detailRow = document.createElement("tr");
+      detailRow.className = "detail-row";
+      const cell = document.createElement("td");
+      cell.colSpan = 5;
+
+      const panel = document.createElement("div");
+      panel.className = "detail-panel";
+      const grid = document.createElement("div");
+      grid.className = "detail-grid two-col";
+
+      const headersContent = detail.headers_json
+        ? createPreformatted(formatJSON(detail.headers_json))
+        : createMuted("No headers captured.");
+      grid.appendChild(createDetailSection("Headers", headersContent));
+
+      const bodyContent = detail.body_text
+        ? createPreformatted(formatJSON(detail.body_text))
+        : createMuted("No body content.");
+      grid.appendChild(createDetailSection("Body", bodyContent));
+
+      panel.appendChild(grid);
+      cell.appendChild(panel);
+      detailRow.appendChild(cell);
+      return detailRow;
+    }
+
+    function clearExpandedRow() {
+      const detailRow = tableBody.querySelector(".detail-row");
+      if (detailRow) {
+        detailRow.remove();
+      }
+      const openRow = tableBody.querySelector(".request-row.is-open");
+      if (openRow) {
+        openRow.classList.remove("is-open");
+      }
+    }
+
+    async function fetchDetail(id) {
+      if (detailCache.has(id)) {
+        return detailCache.get(id);
+      }
+      const response = await fetch(`/api/requests/${id}`, { headers: { Accept: "application/json" } });
+      if (!response.ok) {
+        throw new Error("Failed to load request detail");
+      }
+      const detail = await response.json();
+      detailCache.set(id, detail);
+      return detail;
+    }
+
+    async function showDetail(id) {
+      const row = tableBody.querySelector(`tr[data-request-id="${id}"]`);
+      if (!row) {
+        expandedId = null;
+        clearExpandedRow();
+        return;
+      }
+      clearExpandedRow();
+      expandedId = id;
+      row.classList.add("is-open");
+      try {
+        const detail = await fetchDetail(id);
+        const detailRow = buildDetailRow(detail);
+        row.insertAdjacentElement("afterend", detailRow);
+      } catch (error) {
+        expandedId = null;
+        row.classList.remove("is-open");
+      }
+    }
+
+    tableBody.addEventListener("click", (event) => {
+      const link = event.target.closest("a");
+      if (link) {
+        return;
+      }
+      const row = event.target.closest("tr[data-request-id]");
+      if (!row) {
+        return;
+      }
+      const id = Number(row.dataset.requestId);
+      if (!id) {
+        return;
+      }
+      if (expandedId === id) {
+        expandedId = null;
+        clearExpandedRow();
+        return;
+      }
+      showDetail(id);
+    });
+
     async function refreshRequests() {
       if (document.visibilityState !== "visible") {
         return;
@@ -194,6 +325,9 @@
         renderRows(items);
         if (liveStatus) {
           liveStatus.textContent = `Live · ${formatClock()}`;
+        }
+        if (expandedId) {
+          showDetail(expandedId);
         }
       } catch (error) {
         // Silent fail to avoid flashing errors in the UI.
