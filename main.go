@@ -78,9 +78,11 @@ type RequestDetail struct {
 }
 
 type IndexView struct {
-	Requests []RequestLog
-	Paths    []string
-	Active   string
+	Requests  []RequestLog
+	Paths     []string
+	Active    string
+	StartTime string
+	EndTime   string
 }
 
 type RequestView struct {
@@ -130,7 +132,10 @@ func main() {
 		if filter != "" {
 			filter = normalizePath(filter)
 		}
-		requests, err := listRequests(db, 50, filter)
+		start := c.Query("start")
+		end := c.Query("end")
+
+		requests, err := listRequests(db, 50, filter, start, end)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "failed to load requests")
 			return
@@ -140,7 +145,13 @@ func main() {
 			c.String(http.StatusInternalServerError, "failed to load paths")
 			return
 		}
-		c.HTML(http.StatusOK, "index.html", IndexView{Requests: requests, Paths: paths, Active: filter})
+		c.HTML(http.StatusOK, "index.html", IndexView{
+			Requests:  requests,
+			Paths:     paths,
+			Active:    filter,
+			StartTime: start,
+			EndTime:   end,
+		})
 	})
 
 	router.GET("/api/requests", func(c *gin.Context) {
@@ -148,7 +159,10 @@ func main() {
 		if filter != "" {
 			filter = normalizePath(filter)
 		}
-		requests, err := listRequests(db, 50, filter)
+		start := c.Query("start")
+		end := c.Query("end")
+
+		requests, err := listRequests(db, 50, filter, start, end)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load requests"})
 			return
@@ -402,14 +416,27 @@ func ensureSchema(db *sql.DB) error {
 	return nil
 }
 
-func listRequests(db *sql.DB, limit int, pathFilter string) ([]RequestLog, error) {
-	var rows *sql.Rows
-	var err error
-	if pathFilter == "" {
-		rows, err = db.Query(`SELECT id, method, path, rule_id, created_at FROM requests ORDER BY id DESC LIMIT ?`, limit)
-	} else {
-		rows, err = db.Query(`SELECT id, method, path, rule_id, created_at FROM requests WHERE path = ? ORDER BY id DESC LIMIT ?`, pathFilter, limit)
+func listRequests(db *sql.DB, limit int, pathFilter, startTime, endTime string) ([]RequestLog, error) {
+	query := `SELECT id, method, path, rule_id, created_at FROM requests WHERE 1=1`
+	var args []interface{}
+
+	if pathFilter != "" {
+		query += " AND path = ?"
+		args = append(args, pathFilter)
 	}
+	if startTime != "" {
+		query += " AND created_at >= ?"
+		args = append(args, startTime)
+	}
+	if endTime != "" {
+		query += " AND created_at <= ?"
+		args = append(args, endTime)
+	}
+
+	query += " ORDER BY id DESC LIMIT ?"
+	args = append(args, limit)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}

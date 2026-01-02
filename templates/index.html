@@ -1,14 +1,18 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Callback Listener - Requests</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
   <header class="topbar">
     <div class="container topbar-inner">
@@ -37,12 +41,120 @@
           <p class="hint">Most recent 50 calls. Click any row for details.</p>
         </div>
         <div class="card-actions">
-          <form class="filter" action="/" method="get">
+          <form class="filter" id="filter-form" action="/" method="get">
             <label for="path-filter">Path</label>
             <input id="path-filter" name="path" list="path-options" placeholder="All" value="{{ .Active }}">
+
+            <div class="time-picker-toolbar" id="time-picker">
+              <div class="button-group">
+                <button class="tp-toolbar-btn" id="tp-back" title="Move range backwards" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor"
+                      d="M11.46,8.29a1,1,0,0,0-1.42,0l-3,3a1,1,0,0,0,0,1.42l3,3a1,1,0,0,0,1.42,0,1,1,0,0,0,0-1.42L9.16,12l2.3-2.29A1,1,0,0,0,11.46,8.29ZM14.66,12,17,9.71a1,1,0,0,0-1.42-1.42l-3,3a1,1,0,0,0,0,1.42l3,3a1,1,0,0,0,1.42,0,1,1,0,0,0,0-1.42Z">
+                    </path>
+                  </svg>
+                </button>
+                <button class="tp-toolbar-btn tp-main-trigger" id="tp-trigger" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"
+                    fill="currentColor">
+                    <path
+                      d="M12,6a.99974.99974,0,0,0-1,1v4H9a1,1,0,0,0,0,2h3a.99974.99974,0,0,0,1-1V7A.99974.99974,0,0,0,12,6Zm0-4A10,10,0,1,0,22,12,10.01146,10.01146,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8.00917,8.00917,0,0,1,12,20Z">
+                    </path>
+                  </svg>
+                  <span id="tp-label">Last 1 hour</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+                    <path fill="currentColor"
+                      d="M17,9.17a1,1,0,0,0-1.41,0L12,12.71,8.46,9.17a1,1,0,0,0-1.41,0,1,1,0,0,0,0,1.42l4.24,4.24a1,1,0,0,0,1.42,0L17,10.59A1,1,0,0,0,17,9.17Z">
+                    </path>
+                  </svg>
+                </button>
+                <button class="tp-toolbar-btn" id="tp-forward" title="Move range forwards" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="currentColor"
+                      d="M8.46,8.29A1,1,0,1,0,7,9.71L9.34,12,7,14.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0l3-3a1,1,0,0,0,0-1.42Zm8.5,3-3-3a1,1,0,0,0-1.42,1.42L14.84,12l-2.3,2.29a1,1,0,0,0,0,1.42,1,1,0,0,0,1.42,0l3-3A1,1,0,0,0,17,11.29Z">
+                    </path>
+                  </svg>
+                </button>
+                <button class="tp-toolbar-btn" id="tp-zoom-out" title="Zoom out" type="button">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18">
+                    <path fill="currentColor"
+                      d="M21.71,20.29,18,16.61A9,9,0,1,0,16.61,18l3.68,3.68a1,1,0,0,0,1.42,0A1,1,0,0,0,21.71,20.29ZM11,18a7,7,0,1,1,7-7A7,7,0,0,1,11,18Zm4-8H7a1,1,0,0,0,0,2h8a1,1,0,0,0,0-2Z">
+                    </path>
+                  </svg>
+                </button>
+              </div>
+
+              <input type="hidden" name="start" id="start-input" value="{{ .StartTime }}">
+              <input type="hidden" name="end" id="end-input" value="{{ .EndTime }}">
+
+              <div class="time-picker-popover" id="tp-popover">
+                <div class="tp-popover-left">
+                  <div class="tp-search-container">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16">
+                      <path fill="currentColor"
+                        d="M21.71,20.29,18,16.61A9,9,0,1,0,16.61,18l3.68,3.68a1,1,0,0,0,1.42,0A1,1,0,0,0,21.71,20.29ZM11,18a7,7,0,1,1,7-7A7,7,0,0,1,11,18Z">
+                      </path>
+                    </svg>
+                    <input type="text" id="tp-search" placeholder="Search quick ranges">
+                  </div>
+                  <ul class="tp-quick-list" id="tp-quick-list">
+                    <li><button type="button" class="tp-quick-range" data-range="5m">Last 5 minutes</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="15m">Last 15 minutes</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="30m">Last 30 minutes</button></li>
+                    <li><button type="button" class="tp-quick-range active" data-range="1h">Last 1 hour</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="3h">Last 3 hours</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="6h">Last 6 hours</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="12h">Last 12 hours</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="24h">Last 24 hours</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="2d">Last 2 days</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="7d">Last 7 days</button></li>
+                    <li><button type="button" class="tp-quick-range" data-range="30d">Last 30 days</button></li>
+                  </ul>
+                </div>
+                <div class="tp-popover-right">
+                  <div class="tp-section">
+                    <h3>Absolute time range</h3>
+                    <div class="tp-field">
+                      <label>From</label>
+                      <div class="tp-input-wrapper">
+                        <input type="text" id="tp-from-raw" value="now-1h">
+                        <span class="tp-calendar-trigger">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"
+                            fill="currentColor">
+                            <path
+                              d="M19,4H18V3a1,1,0,0,0-2,0V4H8V3A1,1,0,0,0,6,0V4H5A3,3,0,0,0,2,7V19a3,3,0,0,0,3,3H19a3,3,0,0,0,3-3V7A3,3,0,0,0,19,4Zm1,15a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V10H20ZM20,8H4V7A1,1,0,0,1,5,6H19a1,1,0,0,1,1,1Z">
+                            </path>
+                          </svg>
+                        </span>
+                        <input type="datetime-local" class="tp-datepicker-widget" id="tp-from-widget">
+                      </div>
+                    </div>
+                    <div class="tp-field">
+                      <label>To</label>
+                      <div class="tp-input-wrapper">
+                        <input type="text" id="tp-to-raw" value="now">
+                        <span class="tp-calendar-trigger">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16"
+                            fill="currentColor">
+                            <path
+                              d="M19,4H18V3a1,1,0,0,0-2,0V4H8V3A1,1,0,0,0,6,0V4H5A3,3,0,0,0,2,7V19a3,3,0,0,0,3,3H19a3,3,0,0,0,3-3V7A3,3,0,0,0,19,4Zm1,15a1,1,0,0,1-1,1H5a1,1,0,0,1-1-1V10H20ZM20,8H4V7A1,1,0,0,1,5,6H19a1,1,0,0,1,1,1Z">
+                            </path>
+                          </svg>
+                        </span>
+                        <input type="datetime-local" class="tp-datepicker-widget" id="tp-to-widget">
+                      </div>
+                    </div>
+                    <button type="button" class="tp-apply-btn" id="tp-apply-abs">Apply time range</button>
+                  </div>
+                  <div class="tp-footer">
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <button class="button ghost" type="submit">Filter</button>
-            {{ if .Active }}
-              <a class="link" href="/">Clear</a>
+            {{ if or .Active .StartTime .EndTime }}
+            <a class="link" href="/">Clear</a>
             {{ end }}
           </form>
           <div class="chip" id="live-status">Live</div>
@@ -61,31 +173,31 @@
           </thead>
           <tbody>
             {{ if .Requests }}
-              {{ range .Requests }}
-                <tr class="request-row" data-request-id="{{ .ID }}">
-                  <td><a class="link" href="/requests/{{ .ID }}">#{{ .ID }}</a></td>
-                  <td><span class="method m-{{ .Method }}">{{ .Method }}</span></td>
-                  <td class="mono">{{ .Path }}</td>
-                  <td>{{ formatTime .CreatedAt }}</td>
-                  <td>
-                    {{ if .RuleID.Valid }}
-                      <a class="link" href="/rules/{{ .RuleID.Int64 }}/edit">Rule {{ .RuleID.Int64 }}</a>
-                    {{ else }}
-                      <span class="muted">None</span>
-                    {{ end }}
-                  </td>
-                </tr>
-              {{ end }}
+            {{ range .Requests }}
+            <tr class="request-row" data-request-id="{{ .ID }}">
+              <td><a class="link" href="/requests/{{ .ID }}">#{{ .ID }}</a></td>
+              <td><span class="method m-{{ .Method }}">{{ .Method }}</span></td>
+              <td class="mono">{{ .Path }}</td>
+              <td>{{ formatTime .CreatedAt }}</td>
+              <td>
+                {{ if .RuleID.Valid }}
+                <a class="link" href="/rules/{{ .RuleID.Int64 }}/edit">Rule {{ .RuleID.Int64 }}</a>
+                {{ else }}
+                <span class="muted">None</span>
+                {{ end }}
+              </td>
+            </tr>
+            {{ end }}
             {{ else }}
-              <tr>
-                <td class="empty" colspan="5">
-                  {{ if .Active }}
-                    No requests for <span class="mono">{{ .Active }}</span> yet.
-                  {{ else }}
-                    No requests yet. Send a call to /hook/your-endpoint.
-                  {{ end }}
-                </td>
-              </tr>
+            <tr>
+              <td class="empty" colspan="5">
+                {{ if .Active }}
+                No requests for <span class="mono">{{ .Active }}</span> yet.
+                {{ else }}
+                No requests yet. Send a call to /hook/your-endpoint.
+                {{ end }}
+              </td>
+            </tr>
             {{ end }}
           </tbody>
         </table>
@@ -93,7 +205,7 @@
     </div>
     <datalist id="path-options">
       {{ range .Paths }}
-        <option value="{{ . }}"></option>
+      <option value="{{ . }}"></option>
       {{ end }}
     </datalist>
   </main>
@@ -193,14 +305,66 @@
       }
     }
 
-    function createDetailSection(title, contentNode) {
+    function createDetailSection(title, contentNode, actionNode) {
       const card = document.createElement("div");
       card.className = "detail-card";
+      const header = document.createElement("div");
+      header.style.display = "flex";
+      header.style.justifyContent = "space-between";
+      header.style.alignItems = "center";
+      header.style.marginBottom = "10px";
+
       const heading = document.createElement("h3");
       heading.textContent = title;
-      card.appendChild(heading);
+      heading.style.margin = "0";
+      header.appendChild(heading);
+
+      if (actionNode) {
+        header.appendChild(actionNode);
+      }
+
+      card.appendChild(header);
       card.appendChild(contentNode);
       return card;
+    }
+
+    function generateCurl(detail) {
+      const method = detail.method.toUpperCase();
+      const url = `${window.location.origin}/hook${detail.path}`;
+      let curl = `curl -X ${method} "${url}"`;
+
+      if (detail.headers_json) {
+        try {
+          const headers = JSON.parse(detail.headers_json);
+          for (const [key, value] of Object.entries(headers)) {
+            if (Array.isArray(value)) {
+              value.forEach(v => curl += ` -H "${key}: ${v}"`);
+            } else {
+              curl += ` -H "${key}: ${value}"`;
+            }
+          }
+        } catch (e) { }
+      }
+
+      if (detail.body_text) {
+        const body = detail.body_text.replace(/'/g, "'\\''");
+        curl += ` -d '${body}'`;
+      }
+      return curl;
+    }
+
+    function createCopyButton(textToCopy) {
+      const btn = document.createElement("button");
+      btn.className = "btn-copy";
+      btn.innerHTML = `<span>Copy as cURL</span>`;
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(textToCopy).then(() => {
+          btn.innerHTML = `<span>Copied!</span>`;
+          setTimeout(() => { btn.innerHTML = `<span>Copy as cURL</span>`; }, 2000);
+        });
+      };
+      return btn;
     }
 
     function createMuted(text) {
@@ -235,7 +399,10 @@
       const bodyContent = detail.body_text
         ? createPreformatted(formatJSON(detail.body_text))
         : createMuted("No body content.");
-      grid.appendChild(createDetailSection("Body", bodyContent));
+
+      const curl = generateCurl(detail);
+      const copyBtn = createCopyButton(curl);
+      grid.appendChild(createDetailSection("Body", bodyContent, copyBtn));
 
       panel.appendChild(grid);
       cell.appendChild(panel);
@@ -314,9 +481,10 @@
       }
       try {
         const url = new URL("/api/requests", window.location.origin);
-        if (activePath) {
-          url.searchParams.set("path", activePath);
-        }
+        if (activePath) url.searchParams.set("path", activePath);
+        if (typeof activeStart !== 'undefined' && activeStart) url.searchParams.set("start", activeStart);
+        if (typeof activeEnd !== 'undefined' && activeEnd) url.searchParams.set("end", activeEnd);
+
         const response = await fetch(url, { headers: { Accept: "application/json" } });
         if (!response.ok) {
           return;
@@ -335,6 +503,174 @@
     }
 
     setInterval(refreshRequests, refreshMs);
+
+    // Time Picker Logic
+    const tpContainer = document.getElementById('time-picker');
+    const tpTrigger = document.getElementById('tp-trigger');
+    const tpPopover = document.getElementById('tp-popover');
+    const tpLabel = document.getElementById('tp-label');
+    const tpSearch = document.getElementById('tp-search');
+    const tpQuickList = document.getElementById('tp-quick-list');
+    const startInput = document.getElementById('start-input');
+    const endInput = document.getElementById('end-input');
+    const tpFromRaw = document.getElementById('tp-from-raw');
+    const tpToRaw = document.getElementById('tp-to-raw');
+    const tpApplyAbs = document.getElementById('tp-apply-abs');
+    const filterForm = document.getElementById('filter-form');
+    const tpBack = document.getElementById('tp-back');
+    const tpForward = document.getElementById('tp-forward');
+    const tpZoomOut = document.getElementById('tp-zoom-out');
+    const tpFromWidget = document.getElementById('tp-from-widget');
+    const tpToWidget = document.getElementById('tp-to-widget');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeStart = urlParams.get("start") || "";
+    const activeEnd = urlParams.get("end") || "";
+
+    tpTrigger.onclick = (e) => {
+      e.stopPropagation();
+      tpPopover.classList.toggle('is-open');
+    };
+
+    document.onclick = (e) => {
+      if (!tpContainer.contains(e.target)) {
+        tpPopover.classList.remove('is-open');
+      }
+    };
+
+    tpSearch.oninput = () => {
+      const q = tpSearch.value.toLowerCase();
+      tpQuickList.querySelectorAll('li').forEach(li => {
+        const text = li.textContent.toLowerCase();
+        li.style.display = text.includes(q) ? '' : 'none';
+      });
+    };
+
+    function parseShorthand(str) {
+      const now = new Date();
+      if (!str || str === 'now') return now;
+      const match = str.match(/now-(\d+)([smhd])/);
+      if (!match) return new Date(str.replace(' ', 'T'));
+
+      const val = parseInt(match[1]);
+      const unit = match[2];
+      const d = new Date(now);
+      if (unit === 's') d.setSeconds(now.getSeconds() - val);
+      if (unit === 'm') d.setMinutes(now.getMinutes() - val);
+      if (unit === 'h') d.setHours(now.getHours() - val);
+      if (unit === 'd') d.setDate(now.getDate() - val);
+      return d;
+    }
+
+    function formatDate(date) {
+      if (!date || isNaN(date.getTime())) return '';
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function setRange(startStr, endStr, label) {
+      const start = parseShorthand(startStr);
+      const end = endStr ? parseShorthand(endStr) : null;
+
+      startInput.value = formatDate(start);
+      endInput.value = end ? formatDate(end) : '';
+      tpLabel.textContent = label;
+
+      tpContainer.dataset.startRaw = startStr;
+      tpContainer.dataset.endRaw = endStr || 'now';
+
+      tpPopover.classList.remove('is-open');
+    }
+
+    document.querySelectorAll('.tp-quick-range').forEach(btn => {
+      btn.onclick = () => {
+        setRange(`now-${btn.dataset.range}`, '', btn.textContent);
+      };
+    });
+
+    tpApplyAbs.onclick = () => {
+      setRange(tpFromRaw.value, tpToRaw.value === 'now' ? '' : tpToRaw.value, `${tpFromRaw.value} to ${tpToRaw.value}`);
+    };
+
+    function shiftRange(direction) {
+      const start = parseShorthand(tpContainer.dataset.startRaw || activeStart || 'now-1h');
+      const end = parseShorthand(tpContainer.dataset.endRaw || activeEnd || 'now');
+      const duration = end.getTime() - start.getTime();
+
+      const newStart = new Date(start.getTime() + (direction * duration));
+      const newEnd = new Date(end.getTime() + (direction * duration));
+
+      setRange(formatDate(newStart), formatDate(newEnd), `${formatDate(newStart)} to ${formatDate(newEnd)}`);
+    }
+
+    tpBack.onclick = () => shiftRange(-1);
+    tpForward.onclick = () => shiftRange(1);
+
+    tpZoomOut.onclick = () => {
+      const start = parseShorthand(tpContainer.dataset.startRaw || activeStart || 'now-1h');
+      const end = parseShorthand(tpContainer.dataset.endRaw || activeEnd || 'now');
+      const duration = end.getTime() - start.getTime();
+      const center = new Date(start.getTime() + duration / 2);
+
+      const newStart = new Date(center.getTime() - duration);
+      const newEnd = new Date(center.getTime() + duration);
+
+      setRange(formatDate(newStart), formatDate(newEnd), `${formatDate(newStart)} to ${formatDate(newEnd)}`);
+    };
+
+    function syncWidget(input, widget) {
+      if (!input.value) return;
+      const date = parseShorthand(input.value);
+      if (date && !isNaN(date.getTime())) {
+        const localISO = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        widget.value = localISO;
+      }
+    }
+
+    tpFromWidget.oninput = () => {
+      const date = new Date(tpFromWidget.value);
+      tpFromRaw.value = formatDate(date);
+    };
+
+    tpToWidget.oninput = () => {
+      const date = new Date(tpToWidget.value);
+      tpToRaw.value = formatDate(date);
+    };
+
+    const triggerPicker = (widget) => {
+      if (typeof widget.showPicker === 'function') {
+        widget.showPicker();
+      } else {
+        widget.click();
+      }
+    };
+
+    tpFromRaw.onclick = () => triggerPicker(tpFromWidget);
+    tpFromWidget.onclick = () => triggerPicker(tpFromWidget);
+    tpToRaw.onclick = () => triggerPicker(tpToWidget);
+    tpToWidget.onclick = () => triggerPicker(tpToWidget);
+
+    document.querySelectorAll('.tp-calendar-trigger').forEach(trigger => {
+      trigger.style.pointerEvents = 'auto';
+      trigger.onclick = (e) => {
+        const widget = e.currentTarget.nextElementSibling;
+        triggerPicker(widget);
+      };
+    });
+
+    tpTrigger.addEventListener('click', () => {
+      syncWidget(tpFromRaw, tpFromWidget);
+      syncWidget(tpToRaw, tpToWidget);
+    });
+
+    if (activeStart || activeEnd) {
+      tpLabel.textContent = activeEnd ? `${activeStart} to ${activeEnd}` : `Since ${activeStart}`;
+      tpContainer.dataset.startRaw = activeStart;
+      tpContainer.dataset.endRaw = activeEnd || 'now';
+      tpFromRaw.value = activeStart;
+      tpToRaw.value = activeEnd || 'now';
+    }
   </script>
 </body>
+
 </html>

@@ -8,6 +8,15 @@
   --card: #ffffff;
   --border: rgba(28, 27, 22, 0.12);
   --shadow: 0 20px 50px rgba(28, 27, 22, 0.08);
+  /* Time Picker Theme (Aligned to Light UI) */
+  --tp-bg: #ffffff;
+  --tp-bg-dark: #fcfbf9;
+  --tp-text: var(--text);
+  --tp-text-strong: var(--text-strong);
+  --tp-muted: var(--muted);
+  --tp-border: var(--border);
+  --tp-accent: var(--accent);
+  --tp-accent-soft: var(--accent-soft);
 }
 
 * {
@@ -121,6 +130,7 @@ body::before {
     opacity: 0;
     transform: translateY(14px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -480,4 +490,253 @@ pre {
     flex-direction: column;
     align-items: flex-start;
   }
+}
+
+.btn-copy {
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--bg-strong);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Time Picker Isolated Styles */
+.time-picker-toolbar {
+  position: relative;
+  display: inline-block;
+}
+
+.button-group {
+  display: flex;
+  background: #ffffff;
+  border: 1px solid var(--tp-border);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.button-group:hover {
+  border-color: var(--accent);
+}
+
+.tp-toolbar-btn {
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--tp-border);
+  color: var(--tp-text);
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tp-toolbar-btn:last-child {
+  border-right: none;
+}
+
+.tp-toolbar-btn:hover {
+  background: #f8f9fa;
+  color: var(--tp-accent);
+}
+
+.tp-main-trigger {
+  gap: 8px;
+  padding: 6px 12px;
+  font-weight: 500;
+}
+
+.time-picker-popover {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: #ffffff;
+  border: 1px solid var(--tp-border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+  width: 580px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.time-picker-popover.is-open {
+  display: flex;
+}
+
+.tp-popover-left {
+  width: 240px;
+  border-right: 1px solid var(--tp-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.tp-search-container {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--tp-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--tp-muted);
+}
+
+.tp-search-container input::placeholder {
+  color: #ccc;
+}
+
+.tp-search-container input {
+  background: transparent;
+  border: none;
+  color: var(--tp-text);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+
+.tp-quick-list {
+  list-style: none;
+  padding: 4px 0;
+  margin: 0;
+  overflow-y: auto;
+  flex: 1;
+  max-height: 400px;
+}
+
+.tp-quick-range {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 16px;
+  color: var(--tp-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tp-quick-range:hover {
+  background: #f8f9fa;
+  color: var(--tp-accent);
+}
+
+.tp-quick-range.active {
+  color: var(--tp-accent);
+  background: var(--tp-accent-soft);
+  box-shadow: inset 2px 0 0 var(--tp-accent);
+}
+
+.tp-popover-right {
+  flex: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--tp-bg-dark);
+}
+
+.tp-section h3 {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tp-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 16px;
+}
+
+.tp-field {
+  margin-bottom: 12px;
+}
+
+.tp-field label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 4px;
+  color: var(--tp-muted);
+}
+
+.tp-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tp-input-wrapper input {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--tp-border);
+  color: var(--tp-text);
+  padding: 6px 36px 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.tp-calendar-trigger {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tp-muted);
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.tp-datepicker-widget {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 36px;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tp-input-wrapper input:focus {
+  border-color: var(--tp-accent);
+  box-shadow: 0 0 0 2px var(--tp-accent-soft);
+}
+
+.tp-apply-btn {
+  background: var(--tp-accent);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 2px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.tp-footer {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid var(--tp-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.tp-tz-name {
+  color: var(--tp-text);
+}
+
+.tp-tz-offset {
+  color: var(--tp-muted);
 }

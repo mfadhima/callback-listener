@@ -1,14 +1,18 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Callback Listener - Request {{ .Request.ID }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
   <header class="topbar">
     <div class="container topbar-inner">
@@ -50,51 +54,104 @@
             <dt>Rule</dt>
             <dd>
               {{ if .Request.RuleID.Valid }}
-                <a class="link" href="/rules/{{ .Request.RuleID.Int64 }}/edit">Rule {{ .Request.RuleID.Int64 }}</a>
+              <a class="link" href="/rules/{{ .Request.RuleID.Int64 }}/edit">Rule {{ .Request.RuleID.Int64 }}</a>
               {{ else }}
-                <span class="muted">None</span>
+              <span class="muted">None</span>
               {{ end }}
             </dd>
           </div>
         </dl>
         {{ if .Rule }}
-          <div class="callout">
-            <div class="callout-title">Matched Rule</div>
-            <div class="callout-body">
-              <div><strong>{{ .Rule.Method }}</strong> {{ .Rule.Path }}</div>
-              <div>Status: {{ .Rule.StatusCode }}</div>
-            </div>
+        <div class="callout">
+          <div class="callout-title">Matched Rule</div>
+          <div class="callout-body">
+            <div><strong>{{ .Rule.Method }}</strong> {{ .Rule.Path }}</div>
+            <div>Status: {{ .Rule.StatusCode }}</div>
           </div>
+        </div>
         {{ end }}
       </div>
 
       <div class="card">
         <h2>Query</h2>
         {{ if .Request.QueryJSON.Valid }}
-          <pre>{{ prettyJSON .Request.QueryJSON.String }}</pre>
+        <pre>{{ prettyJSON .Request.QueryJSON.String }}</pre>
         {{ else }}
-          <div class="muted">No query parameters.</div>
+        <div class="muted">No query parameters.</div>
         {{ end }}
       </div>
 
       <div class="card">
         <h2>Headers</h2>
         {{ if .Request.HeadersJSON.Valid }}
-          <pre>{{ prettyJSON .Request.HeadersJSON.String }}</pre>
+        <pre>{{ prettyJSON .Request.HeadersJSON.String }}</pre>
         {{ else }}
-          <div class="muted">No headers captured.</div>
+        <div class="muted">No headers captured.</div>
         {{ end }}
       </div>
 
       <div class="card">
-        <h2>Body</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h2 style="margin: 0;">Body</h2>
+          <button id="copy-curl" class="btn-copy">Copy as cURL</button>
+        </div>
         {{ if .Request.BodyText.Valid }}
-          <pre>{{ .Request.BodyText.String }}</pre>
+        <pre>{{ prettyJSON .Request.BodyText.String }}</pre>
         {{ else }}
-          <div class="muted">No body content.</div>
+        <div class="muted">No body content.</div>
         {{ end }}
       </div>
     </div>
   </main>
+
+  <script id="raw-headers"
+    type="application/json">{{ if .Request.HeadersJSON.Valid }}{{ .Request.HeadersJSON.String }}{{ else }}null{{ end }}</script>
+  <script id="raw-body"
+    type="text/plain">{{ if .Request.BodyText.Valid }}{{ .Request.BodyText.String }}{{ else }}{{ end }}</script>
+
+  <script>
+    const requestData = {
+      method: '{{ .Request.Method }}',
+      path: '{{ .Request.Path }}',
+      headers: document.getElementById('raw-headers').textContent.trim() === 'null' ? null : document.getElementById('raw-headers').textContent.trim(),
+      body: document.getElementById('raw-body').textContent
+    };
+
+    function generateCurl() {
+      const method = requestData.method.toUpperCase();
+      const url = `${window.location.origin}/hook${requestData.path}`;
+      let curl = `curl -X ${method} "${url}"`;
+
+      if (requestData.headers) {
+        try {
+          const headers = JSON.parse(requestData.headers);
+          for (const [key, value] of Object.entries(headers)) {
+            if (Array.isArray(value)) {
+              value.forEach(v => curl += ` -H "${key}: ${v}"`);
+            } else {
+              curl += ` -H "${key}: ${value}"`;
+            }
+          }
+        } catch (e) { }
+      }
+
+      if (requestData.body) {
+        const body = requestData.body.replace(/'/g, "'\\''");
+        curl += ` -d '${body}'`;
+      }
+
+      return curl;
+    }
+
+    document.getElementById("copy-curl").onclick = function () {
+      const btn = this;
+      const curl = generateCurl();
+      navigator.clipboard.writeText(curl).then(() => {
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = "Copy as cURL"; }, 2000);
+      });
+    };
+  </script>
 </body>
+
 </html>
