@@ -210,10 +210,17 @@
     </datalist>
   </main>
   <script>
-    const refreshMs = 5000;
-    const activePath = new URLSearchParams(window.location.search).get("path") || "";
+    const maxRows = 50;
+    const urlParams = new URLSearchParams(window.location.search);
+    const activePath = urlParams.get("path") || "";
+    const activeStart = urlParams.get("start") || "";
+    const activeEnd = urlParams.get("end") || "";
+    const startTimeFilter = activeStart ? parseShorthand(activeStart) : null;
+    const endTimeFilter = activeEnd ? parseShorthand(activeEnd) : null;
     const tableBody = document.querySelector("tbody");
     const liveStatus = document.getElementById("live-status");
+    const detailCache = new Map();
+    let expandedId = null;
 
     function formatClock() {
       return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -236,6 +243,53 @@
       return row;
     }
 
+    function buildRequestRow(item) {
+      const row = document.createElement("tr");
+      row.className = "request-row";
+      row.dataset.requestId = item.id;
+
+      const idCell = document.createElement("td");
+      const idLink = document.createElement("a");
+      idLink.className = "link";
+      idLink.href = `/requests/${item.id}`;
+      idLink.textContent = `#${item.id}`;
+      idCell.appendChild(idLink);
+      row.appendChild(idCell);
+
+      const methodCell = document.createElement("td");
+      const methodTag = document.createElement("span");
+      methodTag.className = `method m-${item.method}`;
+      methodTag.textContent = item.method;
+      methodCell.appendChild(methodTag);
+      row.appendChild(methodCell);
+
+      const pathCell = document.createElement("td");
+      pathCell.className = "mono";
+      pathCell.textContent = item.path;
+      row.appendChild(pathCell);
+
+      const timeCell = document.createElement("td");
+      timeCell.textContent = item.created_at;
+      row.appendChild(timeCell);
+
+      const ruleCell = document.createElement("td");
+      if (item.rule_id) {
+        const ruleLink = document.createElement("a");
+        ruleLink.className = "link";
+        ruleLink.href = `/rules/${item.rule_id}/edit`;
+        ruleLink.textContent = `Rule ${item.rule_id}`;
+        ruleCell.appendChild(ruleLink);
+      } else {
+        const muted = document.createElement("span");
+        muted.className = "muted";
+        muted.textContent = "None";
+        ruleCell.appendChild(muted);
+      }
+      row.appendChild(ruleCell);
+
+      return row;
+    }
+
     function renderRows(items) {
       tableBody.innerHTML = "";
       if (!items.length) {
@@ -244,55 +298,93 @@
       }
 
       for (const item of items) {
-        const row = document.createElement("tr");
-        row.className = "request-row";
-        row.dataset.requestId = item.id;
-
-        const idCell = document.createElement("td");
-        const idLink = document.createElement("a");
-        idLink.className = "link";
-        idLink.href = `/requests/${item.id}`;
-        idLink.textContent = `#${item.id}`;
-        idCell.appendChild(idLink);
-        row.appendChild(idCell);
-
-        const methodCell = document.createElement("td");
-        const methodTag = document.createElement("span");
-        methodTag.className = `method m-${item.method}`;
-        methodTag.textContent = item.method;
-        methodCell.appendChild(methodTag);
-        row.appendChild(methodCell);
-
-        const pathCell = document.createElement("td");
-        pathCell.className = "mono";
-        pathCell.textContent = item.path;
-        row.appendChild(pathCell);
-
-        const timeCell = document.createElement("td");
-        timeCell.textContent = item.created_at;
-        row.appendChild(timeCell);
-
-        const ruleCell = document.createElement("td");
-        if (item.rule_id) {
-          const ruleLink = document.createElement("a");
-          ruleLink.className = "link";
-          ruleLink.href = `/rules/${item.rule_id}/edit`;
-          ruleLink.textContent = `Rule ${item.rule_id}`;
-          ruleCell.appendChild(ruleLink);
-        } else {
-          const muted = document.createElement("span");
-          muted.className = "muted";
-          muted.textContent = "None";
-          ruleCell.appendChild(muted);
-        }
-        row.appendChild(ruleCell);
-
-        tableBody.appendChild(row);
+        tableBody.appendChild(buildRequestRow(item));
       }
     }
 
-    const detailCache = new Map();
-    let expandedId = null;
+    function parseTimestamp(value) {
+      if (!value) return null;
+      const parsed = new Date(value.replace(" ", "T"));
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function appendIncomingRequest(item) {
+      if (!item || !item.id) return;
+      if (activePath && item.path !== activePath) return;
+
+      const createdAt = parseTimestamp(item.created_at);
+      if (startTimeFilter && createdAt && createdAt < startTimeFilter) return;
+      if (endTimeFilter && createdAt && createdAt > endTimeFilter) return;
+
+      const existing = tableBody.querySelector(`tr[data-request-id="${item.id}"]`);
+      if (existing) {
+        if (existing.classList.contains("is-open")) {
+          expandedId = item.id;
+        }
+        existing.remove();
+      }
+
+      const emptyRow = tableBody.querySelector("td.empty");
+      if (emptyRow && emptyRow.parentElement) {
+        emptyRow.parentElement.remove();
+      }
+
+      tableBody.insertBefore(buildRequestRow(item), tableBody.firstChild);
+
+      const requestRows = tableBody.querySelectorAll("tr.request-row");
+      if (requestRows.length > maxRows) {
+        for (let i = maxRows; i < requestRows.length; i++) {
+          requestRows[i].remove();
+        }
+      }
+
+      if (expandedId && expandedId === item.id) {
+        showDetail(item.id);
+      }
+
+      if (liveStatus) {
+        liveStatus.textContent = `Live · ${formatClock()}`;
+      }
+    }
+
+    const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const wsUrl = `${wsProtocol}://${window.location.host}/ws/requests`;
+    let socket;
+
+    function connectWebsocket() {
+      if (activeEnd) {
+        if (liveStatus) {
+          liveStatus.textContent = "Paused (fixed range)";
+        }
+        return;
+      }
+
+      socket = new WebSocket(wsUrl);
+      socket.onopen = () => {
+        if (liveStatus) {
+          liveStatus.textContent = `Live · ${formatClock()}`;
+        }
+      };
+      socket.onmessage = (event) => {
+        try {
+          const item = JSON.parse(event.data);
+          appendIncomingRequest(item);
+        } catch (error) {
+          // ignore malformed frames
+        }
+      };
+      socket.onerror = () => {
+        socket.close();
+      };
+      socket.onclose = () => {
+        if (liveStatus) {
+          liveStatus.textContent = "Reconnecting…";
+        }
+        setTimeout(connectWebsocket, 2000);
+      };
+    }
+
+    connectWebsocket();
 
     function formatJSON(raw) {
       if (!raw) {
@@ -475,35 +567,6 @@
       showDetail(id);
     });
 
-    async function refreshRequests() {
-      if (document.visibilityState !== "visible") {
-        return;
-      }
-      try {
-        const url = new URL("/api/requests", window.location.origin);
-        if (activePath) url.searchParams.set("path", activePath);
-        if (typeof activeStart !== 'undefined' && activeStart) url.searchParams.set("start", activeStart);
-        if (typeof activeEnd !== 'undefined' && activeEnd) url.searchParams.set("end", activeEnd);
-
-        const response = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!response.ok) {
-          return;
-        }
-        const items = await response.json();
-        renderRows(items);
-        if (liveStatus) {
-          liveStatus.textContent = `Live · ${formatClock()}`;
-        }
-        if (expandedId) {
-          showDetail(expandedId);
-        }
-      } catch (error) {
-        // Silent fail to avoid flashing errors in the UI.
-      }
-    }
-
-    setInterval(refreshRequests, refreshMs);
-
     // Time Picker Logic
     const tpContainer = document.getElementById('time-picker');
     const tpTrigger = document.getElementById('tp-trigger');
@@ -522,10 +585,6 @@
     const tpZoomOut = document.getElementById('tp-zoom-out');
     const tpFromWidget = document.getElementById('tp-from-widget');
     const tpToWidget = document.getElementById('tp-to-widget');
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const activeStart = urlParams.get("start") || "";
-    const activeEnd = urlParams.get("end") || "";
 
     tpTrigger.onclick = (e) => {
       e.stopPropagation();

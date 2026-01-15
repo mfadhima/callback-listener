@@ -12,10 +12,12 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	mysql "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/websocket"
 	"gopkg.in/yaml.v3"
 )
 
@@ -106,6 +108,87 @@ type SettingsView struct {
 	Paths []string
 }
 
+type wsClient struct {
+	conn *websocket.Conn
+	send chan RequestSummary
+	hub  *requestHub
+}
+
+type requestHub struct {
+	mu      sync.Mutex
+	clients map[*wsClient]struct{}
+}
+
+func newRequestHub() *requestHub {
+	return &requestHub{
+		clients: make(map[*wsClient]struct{}),
+	}
+}
+
+func (h *requestHub) add(conn *websocket.Conn) {
+	client := &wsClient{
+		conn: conn,
+		send: make(chan RequestSummary, 16),
+		hub:  h,
+	}
+
+	h.mu.Lock()
+	h.clients[client] = struct{}{}
+	h.mu.Unlock()
+
+	go client.writePump()
+	go client.readPump()
+}
+
+func (h *requestHub) remove(client *wsClient) {
+	h.mu.Lock()
+	if _, ok := h.clients[client]; !ok {
+		h.mu.Unlock()
+		return
+	}
+	delete(h.clients, client)
+	close(client.send)
+	h.mu.Unlock()
+	_ = client.conn.Close()
+}
+
+func (h *requestHub) broadcast(summary RequestSummary) {
+	h.mu.Lock()
+	for client := range h.clients {
+		select {
+		case client.send <- summary:
+		default:
+			// Drop overloaded clients to keep the broadcast loop moving.
+			go h.remove(client)
+		}
+	}
+	h.mu.Unlock()
+}
+
+func (c *wsClient) writePump() {
+	for msg := range c.send {
+		if err := c.conn.WriteJSON(msg); err != nil {
+			break
+		}
+	}
+	c.hub.remove(c)
+}
+
+func (c *wsClient) readPump() {
+	for {
+		if _, _, err := c.conn.NextReader(); err != nil {
+			break
+		}
+	}
+	c.hub.remove(c)
+}
+
+var wsUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 func main() {
 	cfg := loadConfig()
 
@@ -118,6 +201,8 @@ func main() {
 	if err := ensureSchema(db); err != nil {
 		log.Fatalf("db schema: %v", err)
 	}
+
+	hub := newRequestHub()
 
 	router := gin.Default()
 	router.SetFuncMap(template.FuncMap{
@@ -325,8 +410,17 @@ func main() {
 		c.Redirect(http.StatusFound, "/settings")
 	})
 
+	router.GET("/ws/requests", func(c *gin.Context) {
+		conn, err := wsUpgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			log.Printf("websocket upgrade failed: %v", err)
+			return
+		}
+		hub.add(conn)
+	})
+
 	router.Any("/hook/*path", func(c *gin.Context) {
-		handleHook(c, db, cfg)
+		handleHook(c, db, cfg, hub)
 	})
 
 	router.GET("/healthz", func(c *gin.Context) {
@@ -456,20 +550,28 @@ func listRequests(db *sql.DB, limit int, pathFilter, startTime, endTime string) 
 func summarizeRequests(requests []RequestLog) []RequestSummary {
 	summaries := make([]RequestSummary, 0, len(requests))
 	for _, request := range requests {
-		var ruleID *int64
-		if request.RuleID.Valid {
-			value := request.RuleID.Int64
-			ruleID = &value
-		}
-		summaries = append(summaries, RequestSummary{
-			ID:        request.ID,
-			Method:    request.Method,
-			Path:      request.Path,
-			RuleID:    ruleID,
-			CreatedAt: formatTime(request.CreatedAt),
-		})
+		summaries = append(summaries, buildRequestSummary(request))
 	}
 	return summaries
+}
+
+func buildRequestSummary(request RequestLog) RequestSummary {
+	var ruleID *int64
+	if request.RuleID.Valid {
+		value := request.RuleID.Int64
+		ruleID = &value
+	}
+	createdAt := request.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = time.Now()
+	}
+	return RequestSummary{
+		ID:        request.ID,
+		Method:    request.Method,
+		Path:      request.Path,
+		RuleID:    ruleID,
+		CreatedAt: formatTime(createdAt),
+	}
 }
 
 func buildRequestDetail(request RequestLog) RequestDetail {
@@ -588,10 +690,13 @@ func deleteRule(db *sql.DB, id int64) error {
 	return err
 }
 
-func insertRequest(db *sql.DB, logRow RequestLog) error {
-	_, err := db.Exec(`INSERT INTO requests (rule_id, method, path, query_json, headers_json, body_text) VALUES (?, ?, ?, ?, ?, ?)`,
+func insertRequest(db *sql.DB, logRow RequestLog) (int64, error) {
+	result, err := db.Exec(`INSERT INTO requests (rule_id, method, path, query_json, headers_json, body_text) VALUES (?, ?, ?, ?, ?, ?)`,
 		nullableInt64(logRow.RuleID), logRow.Method, logRow.Path, nullableString(logRow.QueryJSON), nullableString(logRow.HeadersJSON), nullableString(logRow.BodyText))
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.LastInsertId()
 }
 
 func deleteRequestsByPath(db *sql.DB, pathValue string) error {
@@ -612,7 +717,7 @@ func createIndexIfNeeded(db *sql.DB, tableName, indexName, column string) error 
 	return err
 }
 
-func handleHook(c *gin.Context, db *sql.DB, cfg Config) {
+func handleHook(c *gin.Context, db *sql.DB, cfg Config, hub *requestHub) {
 	method := strings.ToUpper(c.Request.Method)
 	pathValue := normalizePath(c.Param("path"))
 
@@ -635,13 +740,20 @@ func handleHook(c *gin.Context, db *sql.DB, cfg Config) {
 		QueryJSON:   sql.NullString{String: queryJSON, Valid: queryJSON != ""},
 		HeadersJSON: sql.NullString{String: headersJSON, Valid: headersJSON != ""},
 		BodyText:    sql.NullString{String: bodyText, Valid: bodyText != ""},
+		CreatedAt:   time.Now(),
 	}
 	if matchedRule != nil {
 		requestLog.RuleID = sql.NullInt64{Int64: matchedRule.ID, Valid: true}
 	}
 
-	if err := insertRequest(db, requestLog); err != nil {
+	id, err := insertRequest(db, requestLog)
+	if err != nil {
 		log.Printf("failed to log request: %v", err)
+	} else {
+		requestLog.ID = id
+		if hub != nil {
+			hub.broadcast(buildRequestSummary(requestLog))
+		}
 	}
 
 	statusCode := cfg.DefaultStatus
