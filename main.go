@@ -637,6 +637,15 @@ func getRequest(db *sql.DB, id int64) (RequestLog, error) {
 	return logRow, nil
 }
 
+func getRequestCreatedAt(db *sql.DB, id int64) (time.Time, error) {
+	var createdAt time.Time
+	row := db.QueryRow(`SELECT created_at FROM requests WHERE id = ?`, id)
+	if err := row.Scan(&createdAt); err != nil {
+		return time.Time{}, err
+	}
+	return createdAt, nil
+}
+
 func listRules(db *sql.DB) ([]Rule, error) {
 	rows, err := db.Query(`SELECT id, method, path, status_code, response_body, response_headers, created_at, updated_at FROM rules ORDER BY method, path`)
 	if err != nil {
@@ -751,6 +760,9 @@ func handleHook(c *gin.Context, db *sql.DB, cfg Config, hub *requestHub) {
 		log.Printf("failed to log request: %v", err)
 	} else {
 		requestLog.ID = id
+		if createdAt, err := getRequestCreatedAt(db, id); err == nil {
+			requestLog.CreatedAt = createdAt
+		}
 		if hub != nil {
 			hub.broadcast(buildRequestSummary(requestLog))
 		}
